@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.mp3
+*.wav
+*.onnx
+*.onnx.json
+.env

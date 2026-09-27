@@ -1,0 +1,79 @@
+name: Church Announcer
+
+# Cron times are UTC. Nigeria (WAT) is UTC+1.
+on:
+  schedule:
+    - cron: '*/20 * * * 5,6'        # Friday and Saturday, every 20 min
+    - cron: '*/20 0-4,8-23 * * 0'   # Sunday, every 20 min outside the morning window
+    - cron: '*/5 5-7 * * 0'         # Sunday 06:00-08:55 WAT, every 5 min
+    - cron: '0 */12 * * 1-4'        # Monday-Thursday, twice a day (Telegram keeps unread updates for 24h)
+  workflow_dispatch:
+
+concurrency:
+  group: announcer
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write   # only for the keep-alive step below
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Restore backup voices
+        id: piper
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/piper-voices
+          key: piper-${{ vars.PIPER_VOICE_FEMALE || 'en_GB-jenny_dioco-medium' }}-${{ vars.PIPER_VOICE_MALE || 'en_GB-alan-medium' }}
+
+      - name: Download backup voices (first run only)
+        if: steps.piper.outputs.cache-hit != 'true'
+        continue-on-error: true   # Piper is only the fallback; edge-tts can still work
+        run: >
+          python -m piper.download_voices --download-dir ~/.cache/piper-voices
+          ${{ vars.PIPER_VOICE_FEMALE || 'en_GB-jenny_dioco-medium' }}
+          ${{ vars.PIPER_VOICE_MALE || 'en_GB-alan-medium' }}
+
+      - name: Check Telegram and reply
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || secrets.GEMINI_MODEL }}
+          CHURCH_NAME: ${{ vars.CHURCH_NAME || secrets.CHURCH_NAME }}
+          VOICE: ${{ vars.VOICE || secrets.VOICE }}
+          PIPER_VOICE_FEMALE: ${{ vars.PIPER_VOICE_FEMALE }}
+          PIPER_VOICE_MALE: ${{ vars.PIPER_VOICE_MALE }}
+          MIN_GROUP_WORDS: ${{ vars.MIN_GROUP_WORDS }}
+        run: |
+          # Sunday 06:00-08:59 WAT: stay connected until 09:00 WAT so replies take
+          # seconds, even when GitHub starts a scheduled run late.
+          if [ "$(date -u +%u)" = "7" ] && [ "$(date -u +%-H)" -ge 5 ] && [ "$(date -u +%-H)" -le 7 ]; then
+            python -m announcer.main --listen-until 08:00
+          else
+            python -m announcer.main
+          fi
+
+      # GitHub switches off schedules in public repos after 60 days with no commits.
+      # Once a month, re-enable the workflow through the API to reset that clock.
+      - name: Keep the schedule switched on
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%d)" = "01" ] && [ "$(date -u +%H)" = "00" ]; then
+            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/announcer.yml/enable"
+          fi
