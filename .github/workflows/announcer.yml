@@ -8,6 +8,10 @@ on:
     - cron: '*/5 5-7 * * 0'         # Sunday 06:00-08:55 WAT, every 5 min
     - cron: '0 */12 * * 1-4'        # Monday-Thursday, twice a day (Telegram keeps unread updates for 24h)
   workflow_dispatch:
+    inputs:
+      listen_minutes:
+        description: 'Stay connected and reply instantly for this many minutes (0 = check once)'
+        default: '0'
 
 concurrency:
   group: announcer
@@ -58,10 +62,13 @@ jobs:
           PIPER_VOICE_FEMALE: ${{ vars.PIPER_VOICE_FEMALE }}
           PIPER_VOICE_MALE: ${{ vars.PIPER_VOICE_MALE }}
           MIN_GROUP_WORDS: ${{ vars.MIN_GROUP_WORDS }}
+          LISTEN_MINUTES: ${{ inputs.listen_minutes || '0' }}
         run: |
           # Sunday 06:00-08:59 WAT: stay connected until 09:00 WAT so replies take
           # seconds, even when GitHub starts a scheduled run late.
-          if [ "$(date -u +%u)" = "7" ] && [ "$(date -u +%-H)" -ge 5 ] && [ "$(date -u +%-H)" -le 7 ]; then
+          if [ "$LISTEN_MINUTES" -gt 0 ] 2>/dev/null; then
+            python -m announcer.main --listen-until "$(date -u -d "+$(( LISTEN_MINUTES > 180 ? 180 : LISTEN_MINUTES )) min" +%H:%M)"
+          elif [ "$(date -u +%u)" = "7" ] && [ "$(date -u +%-H)" -ge 5 ] && [ "$(date -u +%-H)" -le 7 ]; then
             python -m announcer.main --listen-until 08:00
           else
             python -m announcer.main
