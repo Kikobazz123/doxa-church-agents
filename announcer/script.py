@@ -97,7 +97,11 @@ def gemini_generate(cfg: Config) -> Generate:
         resp = client.models.generate_content(
             model=cfg.gemini_model,
             contents=user,
-            config=types.GenerateContentConfig(system_instruction=system, temperature=0.2),
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                temperature=0.2,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            ),
         )
         return resp.text or ""
 

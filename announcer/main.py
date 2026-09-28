@@ -203,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--listen-until", metavar="HH:MM", help="keep listening until this UTC time today")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    for noisy in ("httpx", "google_genai"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     try:
         cfg = config.load()
