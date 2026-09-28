@@ -35,6 +35,11 @@ class Config:
         """The edge-tts voice for a /voice choice, or the configured default."""
         return EDGE_VOICES.get(gender or "", self.default_voice)
 
+    @property
+    def label(self) -> str:
+        """Name for audio titles and the bot description; CHURCH_NAME is optional."""
+        return self.church_name or "Church"
+
     def default_gender(self) -> str:
         return "male" if self.default_voice == EDGE_VOICES["male"] else "female"
 
@@ -44,7 +49,7 @@ def _env(name: str, default: str = "") -> str:
 
 
 def load() -> Config:
-    missing = [n for n in ("TELEGRAM_BOT_TOKEN", "ALLOWED_CHAT_IDS", "CHURCH_NAME") if not _env(n)]
+    missing = [n for n in ("TELEGRAM_BOT_TOKEN", "ALLOWED_CHAT_IDS") if not _env(n)]
     if missing:
         raise ConfigError(f"Missing required settings: {', '.join(missing)}. See README > Setup.")
 

@@ -14,12 +14,12 @@ log = logging.getLogger("announcer")
 
 Generate = Callable[[str, str], str]  # (system_prompt, user_text) -> script
 
-SYSTEM_PROMPT = """You write the spoken announcement script for {church}. It will be read aloud by a text-to-speech voice during the church service.
+SYSTEM_PROMPT = """You write the spoken announcement script for {audience}. It will be read aloud by a text-to-speech voice during the church service.
 
 Rules:
 1. Keep every name, date, day, time, amount, phone number and venue exactly as written, character for character. Keep all numbers as digits exactly as they appear. Do not spell numbers out and do not change their format.
 2. Never add or invent anything: no extra dates, times, places, scripture, people or details that are not in the text.
-3. Structure: a warm greeting that names {church}; then every announcement, in the order given; then a short closing.
+3. Structure: {greeting}; then every announcement, in the order given; then a short closing.
 4. Plain spoken English with short sentences.
 5. No emojis, no markdown, no headings, no bullet symbols. Plain paragraphs only.
 6. Output only the script.
@@ -79,6 +79,15 @@ def missing_facts(original: str, script: str) -> list[str]:
     return lost
 
 
+def system_prompt(church_name: str) -> str:
+    if church_name:
+        return SYSTEM_PROMPT.format(audience=church_name, greeting=f"a warm greeting that names {church_name}")
+    return SYSTEM_PROMPT.format(
+        audience="a church",
+        greeting="a warm greeting to the congregation that does not name any church unless the announcements do",
+    )
+
+
 def gemini_generate(cfg: Config) -> Generate:
     def generate(system: str, user: str) -> str:
         from google import genai
@@ -104,7 +113,7 @@ def build(text: str, cfg: Config, generate: Generate | None = None) -> Script:
         generate = gemini_generate(cfg)
 
     try:
-        draft = clean(generate(SYSTEM_PROMPT.format(church=cfg.church_name), f"<announcements>\n{original}\n</announcements>"))
+        draft = clean(generate(system_prompt(cfg.church_name), f"<announcements>\n{original}\n</announcements>"))
     except Exception as exc:  # any SDK, network or quota error
         log.warning("script source=original reason=gemini_error type=%s", type(exc).__name__)
         return Script(speakable(original), "original", "The AI rewrite was unavailable, so this is your text as written.")

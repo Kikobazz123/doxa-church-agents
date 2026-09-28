@@ -69,6 +69,24 @@ def test_prompt_carries_church_name_and_rules(cfg):
     assert seen["user"].startswith("<announcements>")
 
 
+def test_church_name_is_optional(cfg, monkeypatch):
+    from dataclasses import replace
+
+    from announcer import config
+
+    seen = {}
+    script.build(INPUT, replace(cfg, church_name=""), generate=lambda s, u: seen.setdefault("system", s) and INPUT)
+    assert "Doxa" not in seen["system"] and "does not name any church" in seen["system"]
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("ALLOWED_CHAT_IDS", "-5103583597")
+    monkeypatch.delenv("CHURCH_NAME", raising=False)
+    monkeypatch.delenv("VOICE", raising=False)
+    loaded = config.load()
+    assert loaded.church_name == "" and loaded.label == "Church"
+    assert loaded.edge_voice(None) == "en-NG-EzinneNeural" and loaded.edge_voice("male") == "en-NG-AbeoNeural"
+
+
 def test_clean_strips_emoji_and_markdown():
     assert script.clean("## Notice 🎉\n- **Bible study** on *Wednesday*") == "Notice\nBible study on Wednesday"
 

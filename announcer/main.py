@@ -63,7 +63,7 @@ class Announcer:
         return m.group(1).lower() if m else None
 
     def _set_gender(self, gender: str) -> None:
-        self.tg.set_short_description(f"{self.cfg.church_name} announcer. Voice: {gender}")
+        self.tg.set_short_description(f"{self.cfg.label} announcer. Voice: {gender}")
         self.gender = gender
 
     # -- per update -------------------------------------------------------------
@@ -173,7 +173,7 @@ class Announcer:
                     reply_to,
                 )
                 return "no_audio"
-            title = f"{self.cfg.church_name} announcements {date}"
+            title = f"{self.cfg.label} announcements {date}"
             caption = title + ("" if engine == "edge-tts" else " (backup voice)")
             self.tg.send_audio(chat_id, out, title=title, caption=caption, reply_to=reply_to)
         log.info("tts engine=%s", engine)

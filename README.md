@@ -71,8 +71,8 @@ On the **Variables** tab, click **New repository variable** for each of these:
 | Name | Value |
 |---|---|
 | `GEMINI_MODEL` | The Flash model name from step 4 |
-| `CHURCH_NAME` | e.g. `Doxa Family Church` (used in the greeting and closing) |
-| `VOICE` *(optional)* | `en-NG-EzinneNeural` (female, the default) or `en-NG-AbeoNeural` (male) |
+| `CHURCH_NAME` *(optional)* | e.g. `Doxa Family Church`. If set, the greeting names the church. Leave it out for a general greeting. |
+| `VOICE` *(optional)* | `en-NG-EzinneNeural` (female) or `en-NG-AbeoNeural` (male). Leave it out to use the female voice. Anyone in the group can change it with `/voice male` or `/voice female`. |
 
 Messages from any chat that isn't in `ALLOWED_CHAT_IDS` are ignored.
 
