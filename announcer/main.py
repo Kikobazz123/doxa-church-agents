@@ -80,10 +80,15 @@ class Announcer:
                     "Sorry, something went wrong while preparing these announcements. Please send them again.",
                     msg["message_id"],
                 )
-            except Exception:
-                # Could not tell anyone. Leave it unconfirmed so the next run retries.
-                log.error("could not send the error reply; update left for the next run")
-                raise
+            except TelegramError as send_exc:
+                if " 403 " in f" {send_exc} ":
+                    # Bot removed from / blocked in that chat: retrying can never succeed,
+                    # and an unconfirmed update would make every later run fail on it.
+                    log.error("chat unreachable (403); update dropped")
+                else:
+                    # Could not tell anyone. Leave it unconfirmed so the next run retries.
+                    log.error("could not send the error reply; update left for the next run")
+                    raise
             outcome = "error"
         self.stats[outcome] += 1
         self.tg.ack(update["update_id"])

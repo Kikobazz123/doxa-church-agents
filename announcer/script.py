@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import Callable
 
@@ -93,17 +94,25 @@ def gemini_generate(cfg: Config) -> Generate:
         from google import genai
         from google.genai import types
 
+        from google.genai import errors
+
         client = genai.Client(api_key=cfg.gemini_api_key, http_options=types.HttpOptions(timeout=90_000))
-        resp = client.models.generate_content(
-            model=cfg.gemini_model,
-            contents=user,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                temperature=0.2,
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-            ),
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=0.2,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
-        return resp.text or ""
+        for attempt in range(3):
+            try:
+                resp = client.models.generate_content(model=cfg.gemini_model, contents=user, config=config)
+                return resp.text or ""
+            except errors.ServerError:
+                # 5xx: Google's side is busy. Worth a short wait; the free tier sees this often.
+                if attempt == 2:
+                    raise
+                log.warning("gemini server error, retrying attempt=%d", attempt + 2)
+                time.sleep(5 * (attempt + 1))
+        return ""
 
     return generate
 

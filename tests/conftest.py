@@ -18,11 +18,12 @@ BOT_ID = 999
 class FakeTelegram:
     """Mimics Bot API update confirmation: an update disappears once a later offset is requested."""
 
-    def __init__(self, updates=(), fail_sends=False):
+    def __init__(self, updates=(), fail_sends=False, send_error="sendMessage: 500 Internal"):
         self.queue = list(updates)
         self.messages, self.audio, self.actions = [], [], []
         self.description = ""
         self.fail_sends = fail_sends
+        self.send_error = send_error
 
     def get_me(self):
         return {"id": BOT_ID, "username": "DoxaAnnouncerBot"}
@@ -37,7 +38,7 @@ class FakeTelegram:
 
     def send_message(self, chat_id, text, reply_to=None):
         if self.fail_sends:
-            raise TelegramError("sendMessage: 500")
+            raise TelegramError(self.send_error)
         self.messages.append((chat_id, text))
 
     def send_audio(self, chat_id, path, title, caption="", reply_to=None):

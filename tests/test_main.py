@@ -135,3 +135,11 @@ def test_deadline_today():
 def test_split_text_respects_limit():
     parts = split_text(("word " * 3000).strip(), limit=4096)
     assert all(len(p) <= 4096 for p in parts) and " ".join(parts).split() == ["word"] * 3000
+
+
+def test_update_dropped_when_bot_was_removed_from_chat(cfg):
+    tg = FakeTelegram([make_update(1, LONG)], fail_sends=True,
+                      send_error="sendMessage: 403 Forbidden: bot was kicked from the group chat")
+    a = Announcer(cfg, tg, build_script=fake_script, engines_for=EngineSpy())
+    run(tg, a)
+    assert tg.queue == [] and a.failures == 1
