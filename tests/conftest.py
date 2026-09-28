@@ -74,6 +74,8 @@ def cfg():
         gemini_api_key="k",
         gemini_model="m",
         default_voice="en-NG-EzinneNeural",
+        edge_voices={"female": "en-NG-EzinneNeural", "male": "en-NG-AbeoNeural"},
+        voice_rate="-15%",
         piper_voices={"female": "pf", "male": "pm"},
         piper_dir="unused",
         telegram_api="https://example.invalid",

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 
 EDGE_VOICES = {"female": "en-NG-EzinneNeural", "male": "en-NG-AbeoNeural"}
 DEFAULT_PIPER_VOICES = {"female": "en_GB-jenny_dioco-medium", "male": "en_GB-alan-medium"}
 DEFAULT_TELEGRAM_API = "https://api.telegram.org"
+DEFAULT_RATE = "-15%"  # a little slower than normal: clearer over a church sound system
 
 
 class ConfigError(RuntimeError):
@@ -22,6 +24,8 @@ class Config:
     gemini_api_key: str
     gemini_model: str
     default_voice: str
+    edge_voices: dict[str, str]
+    voice_rate: str
     piper_voices: dict[str, str]
     piper_dir: str
     telegram_api: str
@@ -33,7 +37,7 @@ class Config:
 
     def edge_voice(self, gender: str | None) -> str:
         """The edge-tts voice for a /voice choice, or the configured default."""
-        return EDGE_VOICES.get(gender or "", self.default_voice)
+        return self.edge_voices.get(gender or "", self.default_voice)
 
     @property
     def label(self) -> str:
@@ -41,7 +45,7 @@ class Config:
         return self.church_name or "Church"
 
     def default_gender(self) -> str:
-        return "male" if self.default_voice == EDGE_VOICES["male"] else "female"
+        return "male" if self.default_voice == self.edge_voices["male"] else "female"
 
 
 def _env(name: str, default: str = "") -> str:
@@ -60,13 +64,23 @@ def load() -> Config:
     if not chat_ids:
         raise ConfigError("ALLOWED_CHAT_IDS is empty.")
 
+    rate = _env("VOICE_RATE") or DEFAULT_RATE
+    if not re.fullmatch(r"[+-]\d{1,2}%", rate):
+        raise ConfigError("VOICE_RATE must look like -15% (slower) or +10% (faster).")
+    edge_voices = {
+        "female": _env("VOICE_FEMALE") or EDGE_VOICES["female"],
+        "male": _env("VOICE_MALE") or EDGE_VOICES["male"],
+    }
+
     return Config(
         telegram_token=_env("TELEGRAM_BOT_TOKEN"),
         allowed_chat_ids=chat_ids,
         church_name=_env("CHURCH_NAME"),
         gemini_api_key=_env("GEMINI_API_KEY"),
         gemini_model=_env("GEMINI_MODEL"),
-        default_voice=_env("VOICE") or EDGE_VOICES["female"],
+        default_voice=_env("VOICE") or edge_voices["female"],
+        edge_voices=edge_voices,
+        voice_rate=rate,
         piper_voices={
             "female": _env("PIPER_VOICE_FEMALE") or DEFAULT_PIPER_VOICES["female"],
             "male": _env("PIPER_VOICE_MALE") or DEFAULT_PIPER_VOICES["male"],

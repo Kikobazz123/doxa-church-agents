@@ -72,7 +72,11 @@ On the **Variables** tab, click **New repository variable** for each of these:
 |---|---|
 | `GEMINI_MODEL` | The Flash model name from step 4 |
 | `CHURCH_NAME` *(optional)* | e.g. `Doxa Family Church`. If set, the greeting names the church. Leave it out for a general greeting. |
-| `VOICE` *(optional)* | `en-NG-EzinneNeural` (female) or `en-NG-AbeoNeural` (male). Leave it out to use the female voice. Anyone in the group can change it with `/voice male` or `/voice female`. |
+| `VOICE_FEMALE` *(optional)* | The voice `/voice female` uses (and the default). Default `en-NG-EzinneNeural`. |
+| `VOICE_MALE` *(optional)* | The voice `/voice male` uses. Default `en-NG-AbeoNeural`. |
+| `VOICE_RATE` *(optional)* | Reading speed. Default `-15%` (a little slower than normal). Use e.g. `-25%` for slower or `+0%` for normal. |
+
+Anyone in the group can switch between the female and male voice with `/voice male` or `/voice female`. Other voice names to try: `en-US-AvaNeural`, `en-GB-SoniaNeural`, `en-KE-AsiliaNeural` (female); `en-US-AndrewNeural`, `en-GB-RyanNeural`, `en-ZA-LukeNeural` (male).
 
 Messages from any chat that isn't in `ALLOWED_CHAT_IDS` are ignored.
 

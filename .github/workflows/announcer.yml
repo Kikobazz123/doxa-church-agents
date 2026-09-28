@@ -59,6 +59,9 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || secrets.GEMINI_MODEL }}
           CHURCH_NAME: ${{ vars.CHURCH_NAME || secrets.CHURCH_NAME }}
           VOICE: ${{ vars.VOICE || secrets.VOICE }}
+          VOICE_FEMALE: ${{ vars.VOICE_FEMALE }}
+          VOICE_MALE: ${{ vars.VOICE_MALE }}
+          VOICE_RATE: ${{ vars.VOICE_RATE }}
           PIPER_VOICE_FEMALE: ${{ vars.PIPER_VOICE_FEMALE }}
           PIPER_VOICE_MALE: ${{ vars.PIPER_VOICE_MALE }}
           MIN_GROUP_WORDS: ${{ vars.MIN_GROUP_WORDS }}

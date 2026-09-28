@@ -6,3 +6,4 @@ __pycache__/
 *.onnx
 *.onnx.json
 .env
+voice-samples/

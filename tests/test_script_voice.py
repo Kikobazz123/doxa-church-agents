@@ -87,6 +87,24 @@ def test_church_name_is_optional(cfg, monkeypatch):
     assert loaded.edge_voice(None) == "en-NG-EzinneNeural" and loaded.edge_voice("male") == "en-NG-AbeoNeural"
 
 
+def test_voice_and_speed_come_from_variables(monkeypatch):
+    from announcer import config
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("ALLOWED_CHAT_IDS", "1")
+    monkeypatch.setenv("VOICE_FEMALE", "en-US-AvaNeural")
+    monkeypatch.setenv("VOICE_MALE", "en-US-AndrewNeural")
+    monkeypatch.delenv("VOICE", raising=False)
+    monkeypatch.delenv("VOICE_RATE", raising=False)
+    c = config.load()
+    assert c.edge_voice(None) == "en-US-AvaNeural" and c.edge_voice("male") == "en-US-AndrewNeural"
+    assert c.voice_rate == "-15%"
+
+    monkeypatch.setenv("VOICE_RATE", "slow")
+    with pytest.raises(config.ConfigError):
+        config.load()
+
+
 def test_clean_strips_emoji_and_markdown():
     assert script.clean("## Notice 🎉\n- **Bible study** on *Wednesday*") == "Notice\nBible study on Wednesday"
 

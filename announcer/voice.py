@@ -23,18 +23,18 @@ class VoiceError(RuntimeError):
     pass
 
 
-def edge_engine(voice: str) -> Engine:
+def edge_engine(voice: str, rate: str = "+0%") -> Engine:
     def run(text: str, out: Path) -> None:
         import edge_tts
 
-        asyncio.run(edge_tts.Communicate(text, voice).save(str(out)))
+        asyncio.run(edge_tts.Communicate(text, voice, rate=rate).save(str(out)))
 
     return run
 
 
-def piper_engine(voice: str, voice_dir: str) -> Engine:
+def piper_engine(voice: str, voice_dir: str, rate: str = "+0%") -> Engine:
     def run(text: str, out: Path) -> None:
-        from piper import PiperVoice
+        from piper import PiperVoice, SynthesisConfig
 
         model = Path(voice_dir) / f"{voice}.onnx"
         if not model.exists():
@@ -45,7 +45,9 @@ def piper_engine(voice: str, voice_dir: str) -> Engine:
             )
         wav = out.with_suffix(".wav")
         with wave.open(str(wav), "wb") as wf:
-            PiperVoice.load(str(model)).synthesize_wav(text, wf)
+            # Piper's length_scale is duration: -15% speed -> ~1.18x longer.
+            speed = 1 + int(rate.rstrip("%")) / 100
+            PiperVoice.load(str(model)).synthesize_wav(text, wf, syn_config=SynthesisConfig(length_scale=1 / speed))
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
             raise VoiceError("ffmpeg not found")
@@ -75,6 +77,6 @@ def synthesize(text: str, out: Path, engines: list[tuple[str, Engine]]) -> str:
 def default_engines(cfg: Config, gender: str | None) -> list[tuple[str, Engine]]:
     g = gender or cfg.default_gender()
     return [
-        ("edge-tts", edge_engine(cfg.edge_voice(gender))),
-        ("piper", piper_engine(cfg.piper_voices[g], cfg.piper_dir)),
+        ("edge-tts", edge_engine(cfg.edge_voice(gender), cfg.voice_rate)),
+        ("piper", piper_engine(cfg.piper_voices[g], cfg.piper_dir, cfg.voice_rate)),
     ]
