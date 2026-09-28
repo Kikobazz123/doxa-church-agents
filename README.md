@@ -41,6 +41,9 @@ You need a Telegram account, a Google account and a GitHub account. The whole se
 2. Send any message in the group, for example `hello`.
 
 ### 3. Find the group's ID
+**Easiest:** on a computer with this repo, run `python -m announcer.find_chats`, paste the token when asked, and it prints the group's ID. It also tells you if privacy mode or a webhook is getting in the way.
+
+**Or by hand:**
 1. On a computer, open this address in a browser, replacing `<TOKEN>` with the bot's token:
    `https://api.telegram.org/bot<TOKEN>/getUpdates`
 2. Look for `"chat":{"id":-100…`. The number, **including the minus sign**, is the group ID.

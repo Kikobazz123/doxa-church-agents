@@ -54,6 +54,9 @@ class Telegram:
     def get_me(self) -> dict:
         return self._call("getMe")
 
+    def get_webhook_info(self) -> dict:
+        return self._call("getWebhookInfo")
+
     def get_updates(self, offset: int | None = None, timeout: int = 0, limit: int = 100) -> list[dict]:
         params = {"timeout": timeout, "limit": limit, "allowed_updates": ["message", "edited_message"]}
         if offset is not None:
