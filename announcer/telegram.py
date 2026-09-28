@@ -38,12 +38,12 @@ class Telegram:
         self._base = f"{api_base}/bot{token}/"
         self._http = session or requests.Session()
 
-    def _call(self, method: str, *, timeout: float = 30, files=None, **params):
+    def _call(self, method: str, *, http_timeout: float = 30, files=None, **params):
         try:
             if files:
-                resp = self._http.post(self._base + method, data=params, files=files, timeout=timeout)
+                resp = self._http.post(self._base + method, data=params, files=files, timeout=http_timeout)
             else:
-                resp = self._http.post(self._base + method, json=params, timeout=timeout)
+                resp = self._http.post(self._base + method, json=params, timeout=http_timeout)
             body = resp.json()
         except (requests.RequestException, ValueError) as exc:
             raise TelegramError(f"{method}: {type(exc).__name__}") from None
@@ -61,7 +61,7 @@ class Telegram:
         params = {"timeout": timeout, "limit": limit, "allowed_updates": ["message", "edited_message"]}
         if offset is not None:
             params["offset"] = offset
-        return self._call("getUpdates", timeout=timeout + 15, **params)
+        return self._call("getUpdates", http_timeout=timeout + 15, **params)
 
     def ack(self, update_id: int) -> None:
         """Confirm every update up to and including update_id, so no later run sees it again."""
@@ -79,7 +79,7 @@ class Telegram:
         if reply_to:
             params["reply_parameters"] = json.dumps({"message_id": reply_to, "allow_sending_without_reply": True})
         with open(path, "rb") as fh:
-            self._call("sendAudio", timeout=120, files={"audio": (path.name, fh, "audio/mpeg")}, **params)
+            self._call("sendAudio", http_timeout=120, files={"audio": (path.name, fh, "audio/mpeg")}, **params)
 
     def send_chat_action(self, chat_id: int, action: str) -> None:
         try:
