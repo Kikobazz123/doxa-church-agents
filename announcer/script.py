@@ -142,19 +142,42 @@ def gemini_generate(cfg: Config) -> Generate:
             response_schema=RESPONSE_SCHEMA,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
-        for attempt in range(3):
-            try:
-                resp = client.models.generate_content(model=cfg.gemini_model, contents=user, config=config)
-                return resp.text or ""
-            except errors.ServerError:
-                # 5xx: Google's side is busy. Worth a short wait; the free tier sees this often.
-                if attempt == 2:
+        models = [cfg.gemini_model] + [m for m in cfg.gemini_fallback_models if m != cfg.gemini_model]
+        for m, model in enumerate(models):
+            for attempt in range(2):
+                try:
+                    resp = client.models.generate_content(model=model, contents=user, config=config)
+                    if m:
+                        log.info("gemini fallback model used index=%d", m)
+                    return resp.text or ""
+                except errors.ServerError as exc:
+                    # 5xx. Retry once, then move to the next model: the same long script has
+                    # failed repeatedly on one model while short ones succeed.
+                    log.warning("gemini server error model_index=%d attempt=%d code=%s status=%s message=%s",
+                                m, attempt + 1, exc.code, exc.status, str(exc.message)[:200])
+                    last = exc
+                    time.sleep(5)
+                except errors.ClientError as exc:
+                    # 4xx (bad key, quota, rejected request): record why, then fail over to the original text.
+                    log.warning("gemini client error model_index=%d code=%s status=%s message=%s",
+                                m, exc.code, exc.status, str(exc.message)[:200])
                     raise
-                log.warning("gemini server error, retrying attempt=%d", attempt + 2)
-                time.sleep(5 * (attempt + 1))
-        return ""
+        raise last
 
     return generate
+
+
+def _unavailable_note(exc: Exception) -> str:
+    code = getattr(exc, "code", None)
+    if code == 429:
+        reason = "Google's free daily limit for the AI was reached"
+    elif isinstance(code, int) and code >= 500:
+        reason = "Google's AI service had a server problem"
+    elif code in (401, 403):
+        reason = "Google rejected the AI key (check GEMINI_API_KEY)"
+    else:
+        reason = "the AI rewrite was unavailable"
+    return f"{reason[0].upper() + reason[1:]}, so this is your text as written. Resend later to try again."
 
 
 def _finish(display: str, source: str, note: str | None, names: list[str]) -> Script:
@@ -176,7 +199,7 @@ def build(text: str, cfg: Config, generate: Generate | None = None) -> Script:
         draft = clean(draft)
     except Exception as exc:  # any SDK, network or quota error
         log.warning("script source=original reason=gemini_error type=%s", type(exc).__name__)
-        return _finish(original, "original", "The AI rewrite was unavailable, so this is your text as written.", [])
+        return _finish(original, "original", _unavailable_note(exc), [])
 
     if not draft:
         log.warning("script source=original reason=gemini_empty")

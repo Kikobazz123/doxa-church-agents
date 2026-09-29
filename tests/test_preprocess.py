@@ -203,3 +203,41 @@ def test_engine_order_gemini_then_edge_then_piper(cfg):
     assert names == ["gemini-tts", "edge-tts", "piper"]
     assert [n for n, _ in voice.default_engines(cfg, None)] == ["edge-tts", "piper"]
     assert GEMINI_TTS_VOICES["male"]
+
+
+def test_gemini_falls_back_to_second_model_on_server_errors(cfg, monkeypatch):
+    from google import genai
+    from google.genai import errors
+
+    tried = []
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            tried.append(model)
+            if model == "main":
+                raise errors.ServerError(500, {"error": {"code": 500, "status": "INTERNAL", "message": "Internal error"}})
+            return type("R", (), {"text": '{"script": "ok", "nigerian_names": []}'})()
+
+    monkeypatch.setattr(genai, "Client", lambda **kw: type("C", (), {"models": FakeModels()})())
+    monkeypatch.setattr(script.time, "sleep", lambda s: None)
+    generate = script.gemini_generate(replace(cfg, gemini_model="main", gemini_fallback_models=("backup",)))
+    assert script.parse_reply(generate("sys", "user")) == ("ok", [])
+    assert tried == ["main", "main", "backup"]
+
+
+def test_gemini_client_error_is_not_retried(cfg, monkeypatch):
+    from google import genai
+    from google.genai import errors
+
+    tried = []
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            tried.append(model)
+            raise errors.ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "quota"}})
+
+    monkeypatch.setattr(genai, "Client", lambda **kw: type("C", (), {"models": FakeModels()})())
+    generate = script.gemini_generate(replace(cfg, gemini_model="main", gemini_fallback_models=("backup",)))
+    with pytest.raises(errors.ClientError):
+        generate("sys", "user")
+    assert tried == ["main"]

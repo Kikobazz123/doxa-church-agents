@@ -10,6 +10,7 @@ EDGE_VOICES = {"female": "en-NG-EzinneNeural", "male": "en-NG-AbeoNeural"}
 DEFAULT_PIPER_VOICES = {"female": "en_GB-jenny_dioco-medium", "male": "en_GB-alan-medium"}
 DEFAULT_TELEGRAM_API = "https://api.telegram.org"
 DEFAULT_RATE = "-15%"  # a little slower than normal: clearer over a church sound system
+DEFAULT_FALLBACK_MODELS = ("gemini-3.5-flash",)  # tried when the main model keeps returning 5xx
 GEMINI_TTS_VOICES = {"female": "Sulafat", "male": "Charon"}
 DEFAULT_TTS_STYLE = (
     "Read in a warm, clear Nigerian English accent, at a steady church-announcement pace. "
@@ -38,6 +39,7 @@ class Config:
     gemini_tts_model: str = ""
     gemini_tts_voices: dict[str, str] = field(default_factory=lambda: dict(GEMINI_TTS_VOICES))
     tts_style: str = DEFAULT_TTS_STYLE
+    gemini_fallback_models: tuple[str, ...] = DEFAULT_FALLBACK_MODELS
 
     @property
     def gemini_enabled(self) -> bool:
@@ -102,4 +104,6 @@ def load() -> Config:
             "male": _env("GEMINI_TTS_VOICE_MALE") or GEMINI_TTS_VOICES["male"],
         },
         tts_style=_env("TTS_STYLE") or DEFAULT_TTS_STYLE,
+        gemini_fallback_models=tuple(m.strip() for m in _env("GEMINI_FALLBACK_MODELS").split(",") if m.strip())
+        or DEFAULT_FALLBACK_MODELS,
     )

@@ -84,6 +84,7 @@ jobs:
           VOICE_FEMALE: ${{ vars.VOICE_FEMALE }}
           VOICE_MALE: ${{ vars.VOICE_MALE }}
           VOICE_RATE: ${{ vars.VOICE_RATE }}
+          GEMINI_FALLBACK_MODELS: ${{ vars.GEMINI_FALLBACK_MODELS }}
           GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
           GEMINI_TTS_VOICE_FEMALE: ${{ vars.GEMINI_TTS_VOICE_FEMALE }}
           GEMINI_TTS_VOICE_MALE: ${{ vars.GEMINI_TTS_VOICE_MALE }}
