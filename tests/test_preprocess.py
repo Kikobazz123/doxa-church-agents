@@ -179,7 +179,7 @@ def test_gemini_tts_joins_chunks_into_one_mp3(tmp_path):
         return _pcm()
 
     engine = voice.gemini_tts_engine("k", "m", "Kore", "style", synth=synth)
-    long_text = "\n\n".join(["Paragraph number one is here. " * 20] * 4)
+    long_text = "\n\n".join(["Paragraph number one is here. " * 20] * (voice.TTS_CHUNK // 300 + 2))
     out = tmp_path / "a.mp3"
     engine(long_text, out)
     assert len(calls) > 1 and all(len(c) <= voice.TTS_CHUNK for c in calls)
