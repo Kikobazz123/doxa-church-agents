@@ -150,7 +150,8 @@ def synthesize(text: str, out: Path, engines: list[tuple[str, Engine]]) -> str:
 def default_engines(cfg: Config, gender: str | None) -> list[tuple[str, Engine]]:
     g = gender or cfg.default_gender()
     engines: list[tuple[str, Engine]] = []
-    if cfg.gemini_api_key and cfg.gemini_tts_model:
+    # GEMINI_TTS_VOICE_FEMALE / _MALE = "off" makes edge-tts the main voice for that gender.
+    if cfg.gemini_api_key and cfg.gemini_tts_model and cfg.gemini_tts_voices[g].lower() != "off":
         engines.append(("gemini-tts", gemini_tts_engine(
             cfg.gemini_api_key, cfg.gemini_tts_model, cfg.gemini_tts_voices[g], cfg.tts_style)))
     engines.append(("edge-tts", edge_engine(cfg.edge_voice(gender), cfg.voice_rate)))

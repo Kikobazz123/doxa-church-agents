@@ -202,6 +202,9 @@ def test_engine_order_gemini_then_edge_then_piper(cfg):
     names = [n for n, _ in voice.default_engines(replace(cfg, gemini_tts_model="gemini-tts-model"), "male")]
     assert names == ["gemini-tts", "edge-tts", "piper"]
     assert [n for n, _ in voice.default_engines(cfg, None)] == ["edge-tts", "piper"]
+    female_off = replace(cfg, gemini_tts_model="m", gemini_tts_voices={"female": "off", "male": "Charon"})
+    assert [n for n, _ in voice.default_engines(female_off, "female")] == ["edge-tts", "piper"]
+    assert [n for n, _ in voice.default_engines(female_off, "male")][0] == "gemini-tts"
     assert GEMINI_TTS_VOICES["male"]
 
 
