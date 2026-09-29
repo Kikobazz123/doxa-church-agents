@@ -22,7 +22,7 @@ log = logging.getLogger("announcer")
 Engine = Callable[[str, Path], None]  # (text, mp3_path) -> writes the file
 
 PCM_RATE, PCM_WIDTH, PCM_CHANNELS = 24_000, 2, 1   # Gemini TTS: 24 kHz, 16-bit, mono
-TTS_CHUNK = 1_500
+TTS_CHUNK = 3_000   # free tier allows only ~10 TTS requests a day: fewer, larger chunks
 
 
 class VoiceError(RuntimeError):
