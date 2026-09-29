@@ -7,7 +7,6 @@ import base64
 import io
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -30,14 +29,23 @@ class VoiceError(RuntimeError):
     pass
 
 
-def to_mp3(wav: Path, out: Path) -> None:
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise VoiceError("ffmpeg not found")
-    subprocess.run(
-        [ffmpeg, "-y", "-loglevel", "error", "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "4", str(out)],
-        check=True, capture_output=True, timeout=300,
-    )
+def pcm_to_mp3(frames: bytes, out: Path, rate: int = PCM_RATE, channels: int = PCM_CHANNELS) -> None:
+    """16-bit PCM to MP3 in pure Python (lameenc), so no ffmpeg is needed on the runner."""
+    import lameenc
+
+    enc = lameenc.Encoder()
+    enc.set_bit_rate(96)
+    enc.set_in_sample_rate(rate)
+    enc.set_channels(channels)
+    enc.set_quality(2)
+    out.write_bytes(enc.encode(frames) + enc.flush())
+
+
+def wav_to_mp3(wav: Path, out: Path) -> None:
+    with wave.open(str(wav)) as wf:
+        if wf.getsampwidth() != 2:
+            raise VoiceError("expected 16-bit audio")
+        pcm_to_mp3(wf.readframes(wf.getnframes()), out, wf.getframerate(), wf.getnchannels())
 
 
 def pcm_frames(audio: bytes | str) -> bytes:
@@ -49,13 +57,9 @@ def pcm_frames(audio: bytes | str) -> bytes:
     return raw
 
 
-def write_wav(path: Path, frames: list[bytes]) -> None:
-    with wave.open(str(path), "wb") as wf:
-        wf.setnchannels(PCM_CHANNELS)
-        wf.setsampwidth(PCM_WIDTH)
-        wf.setframerate(PCM_RATE)
-        silence = b"\x00" * int(PCM_RATE * PCM_WIDTH * 0.4)   # short pause between chunks
-        wf.writeframes(silence.join(frames))
+def join_chunks(frames: list[bytes]) -> bytes:
+    silence = b"\x00" * int(PCM_RATE * PCM_WIDTH * 0.4)   # short pause between chunks
+    return silence.join(frames)
 
 
 def gemini_tts_engine(api_key: str, model: str, voice: str, style: str, synth=None) -> Engine:
@@ -93,10 +97,7 @@ def gemini_tts_engine(api_key: str, model: str, voice: str, style: str, synth=No
         frames = [pcm_frames(make(chunk)) for chunk in split_text(text, TTS_CHUNK)]
         if not any(frames):
             raise VoiceError("gemini-tts returned no audio")
-        wav = out.with_suffix(".wav")
-        write_wav(wav, frames)
-        to_mp3(wav, out)
-        wav.unlink(missing_ok=True)
+        pcm_to_mp3(join_chunks(frames), out)
 
     return run
 
@@ -126,7 +127,7 @@ def piper_engine(voice: str, voice_dir: str, rate: str = "+0%") -> Engine:
             # Piper's length_scale is duration: -15% speed -> ~1.18x longer.
             speed = 1 + int(rate.rstrip("%")) / 100
             PiperVoice.load(str(model)).synthesize_wav(text, wf, syn_config=SynthesisConfig(length_scale=1 / speed))
-        to_mp3(wav, out)
+        wav_to_mp3(wav, out)
         wav.unlink(missing_ok=True)
 
     return run
