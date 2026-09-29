@@ -155,9 +155,13 @@ class Announcer:
         self.tg.send_chat_action(chat_id, "typing")
         result = self.build_script(text, self.cfg)
         heading = "Updated script:\n\n" if edited else ""
-        self.tg.send_message(chat_id, heading + result.text, reply_to)
-        if result.note:
-            self.tg.send_message(chat_id, f"Note: {result.note}")
+        self.tg.send_message(chat_id, heading + result.display, reply_to)
+        notes = [result.note] if result.note else []
+        if audio and result.pronounced:
+            spelled = "; ".join(f"{name} as {spoken}" for name, spoken in result.pronounced.items())
+            notes.append(f"Names pronounced: {spelled}. To correct one, edit pronunciations.json in the repo.")
+        for note in notes:
+            self.tg.send_message(chat_id, f"Note: {note}")
         log.info("script source=%s", result.source)
         if not audio:
             return "preview"
@@ -166,20 +170,21 @@ class Announcer:
         date = datetime.now(WAT).strftime("%Y-%m-%d")
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / f"announcements-{date}.mp3"
+            engines = self.engines_for(self.cfg, self.gender)
             try:
-                engine = voice.synthesize(result.text, out, self.engines_for(self.cfg, self.gender))
+                engine = voice.synthesize(result.spoken, out, engines)
             except voice.VoiceError:
                 self.failures += 1
                 log.error("tts outcome=failed")
                 self.tg.send_message(
                     chat_id,
-                    "I couldn't make the audio this time: both voice engines failed. "
+                    "I couldn't make the audio this time: every voice engine failed. "
                     "The script above is ready to read aloud, or send the announcements again to retry.",
                     reply_to,
                 )
                 return "no_audio"
             title = f"{self.cfg.label} announcements {date}"
-            caption = title + ("" if engine == "edge-tts" else " (backup voice)")
+            caption = title + ("" if engine == engines[0][0] else f" (backup voice: {engine})")
             self.tg.send_audio(chat_id, out, title=title, caption=caption, reply_to=reply_to)
         log.info("tts engine=%s", engine)
         return "announced"

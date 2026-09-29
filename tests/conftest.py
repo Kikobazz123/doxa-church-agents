@@ -85,7 +85,7 @@ def cfg():
 
 
 def fake_script(text, cfg):
-    return Script(f"SCRIPT: {text}", "gemini")
+    return Script(f"SCRIPT: {text}", f"SPOKEN: {text}", "gemini")
 
 
 class EngineSpy:

@@ -76,6 +76,10 @@ On the **Variables** tab, click **New repository variable** for each of these:
 | `VOICE_MALE` *(optional)* | The voice `/voice male` uses. Default `en-NG-AbeoNeural`. |
 | `VOICE_RATE` *(optional)* | Reading speed. Default `-15%` (a little slower than normal). Use e.g. `-25%` for slower or `+0%` for normal. |
 
+| `GEMINI_TTS_MODEL` *(recommended)* | Gemini's voice model, e.g. `gemini-3.8-flash-tts`. When set, Gemini reads the announcements in a Nigerian English accent. edge-tts and Piper become the backups. |
+| `GEMINI_TTS_VOICE_FEMALE` / `GEMINI_TTS_VOICE_MALE` *(optional)* | Gemini voice names. Defaults are `Sulafat` and `Charon`. To compare voices, use Actions → Run workflow → tick **voice_samples** and download the MP3s. |
+| `TTS_STYLE` *(optional)* | How Gemini should read. The default asks for a warm, clear Nigerian English accent at a steady church-announcement pace. |
+
 Anyone in the group can switch between the female and male voice with `/voice male` or `/voice female`. Other voice names to try: `en-US-AvaNeural`, `en-GB-SoniaNeural`, `en-KE-AsiliaNeural` (female); `en-US-AndrewNeural`, `en-GB-RyanNeural`, `en-ZA-LukeNeural` (male).
 
 Messages from any chat that isn't in `ALLOWED_CHAT_IDS` are ignored.
@@ -104,6 +108,27 @@ Messages from any chat that isn't in `ALLOWED_CHAT_IDS` are ignored.
 So "Amen 🙏" or "Received, thanks" won't produce an MP3. To send a very short announcement, mention the bot.
 
 **Made a mistake?** Edit the message in Telegram. On its next check, the bot replies with an *Updated script* and a new MP3.
+
+## Pasting from the Word document
+
+You can paste the script straight from the .docx. The bot tidies it up first:
+- **Bold marks and lines:** `**`, `|` and `---` leftovers are removed.
+- **ALL-CAPS headings:** read as normal headings, so the voice doesn't spell them out letter by letter.
+- **Attendance tables** (S/N | CENTRE | ATT, even side by side): read as sentences, e.g. *"First, Bonny Street, nineteen in attendance."* Empty rows are skipped.
+- **Abbreviations:** Ps, Rev., Dr., Mr./Mrs, GO and & are read in full. Acronyms such as NTA are read letter by letter.
+
+The script shown in Telegram keeps the normal spelling. Only the audio is changed.
+
+## Name pronunciation
+
+The voice can mispronounce Nigerian names, so the bot respells them for the voice only. For example, *Abuloma* is read as *Ah-boo-loh-mah*. After each MP3, the bot lists which names it respelled.
+
+To correct a name, or to add one that's always wrong:
+1. In this repo on GitHub, open **`pronunciations.json`** and click the ✏️ pencil icon.
+2. Add or fix a line in the form `"Name": "Re-spell-ing",`, for example `"Eke": "Eh-keh",`. Every line except the last ends with a comma.
+3. Click **Commit changes**. The correction applies from the next MP3 onward.
+
+Names in this file are always respelled their way. Other Nigerian names get the bot's best guess, and English names like Grace or James are left alone.
 
 ## When it checks
 
@@ -159,9 +184,12 @@ python -m announcer.main --listen-until 08:00     # keep listening until 08:00 U
 | File | Role |
 |---|---|
 | `announcer/main.py` | Poll → process → reply → confirm each update, then exit |
-| `announcer/script.py` | Gemini rewrite, emoji/markdown clean-up, fact guard (every number and name must survive) |
+| `announcer/normalise.py` | Word-document clean-up, ALL-CAPS headings, attendance tables → sentences |
+| `announcer/script.py` | Gemini rewrite (JSON, flags Nigerian names), fact guard (every number and name must survive) |
+| `announcer/speech.py` | Spoken text only: abbreviations, acronyms, numbers, name respelling from `pronunciations.json` |
 | `announcer/numbers.py` | ₦ amounts and clock times → words, done in code rather than by the AI |
-| `announcer/voice.py` | edge-tts, falling back to Piper |
+| `announcer/voice.py` | Gemini TTS, then edge-tts, then Piper |
+| `announcer/samples.py` | Voice samples for choosing a voice |
 | `announcer/telegram.py` | Bot API client. Errors never include the token |
 | `announcer/config.py` | Environment settings |
 

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from announcer import script, voice
+from announcer.normalise import normalise
 from announcer.numbers import speakable
 
 INPUT = (
@@ -23,7 +24,7 @@ INPUT = (
     ("Ends 4:30 PM", "Ends four thirty p.m."),
     ("Doors open 7:05am", "Doors open seven oh five a.m."),
     ("Call 08031234567", "Call 08031234567"),
-    ("amazing 5 amazing", "amazing 5 amazing"),
+    ("amazing 5 amazing", "amazing five amazing"),
 ])
 def test_speakable(text, expected):
     assert speakable(text) == expected
@@ -33,7 +34,8 @@ def test_gemini_script_is_used_when_facts_survive(cfg):
     draft = "Good morning, Doxa Family Church. " + INPUT.replace("\n", " ") + " God bless you."
     result = script.build(INPUT, cfg, generate=lambda s, u: draft)
     assert result.source == "gemini" and result.note is None
-    assert "five thousand naira" in result.text and "four p.m." in result.text
+    assert "five thousand naira" in result.spoken and "four p.m." in result.spoken
+    assert "₦5,000" in result.display and "4pm" in result.display
 
 
 def test_fact_guard_rejects_changed_amount(cfg):
@@ -54,7 +56,8 @@ def test_gemini_failure_voices_original_text(cfg):
 
     result = script.build(INPUT, cfg, generate=down)
     assert result.source == "original"
-    assert result.text == speakable(script.clean(INPUT))
+    assert result.display == normalise(script.clean(INPUT))
+    assert "five thousand naira" in result.spoken
 
 
 def test_prompt_carries_church_name_and_rules(cfg):

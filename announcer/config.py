@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 EDGE_VOICES = {"female": "en-NG-EzinneNeural", "male": "en-NG-AbeoNeural"}
 DEFAULT_PIPER_VOICES = {"female": "en_GB-jenny_dioco-medium", "male": "en_GB-alan-medium"}
 DEFAULT_TELEGRAM_API = "https://api.telegram.org"
 DEFAULT_RATE = "-15%"  # a little slower than normal: clearer over a church sound system
+GEMINI_TTS_VOICES = {"female": "Sulafat", "male": "Charon"}
+DEFAULT_TTS_STYLE = (
+    "Read in a warm, clear Nigerian English accent, at a steady church-announcement pace. "
+    "Pronounce Nigerian names with even syllables, every vowel sounded."
+)
 
 
 class ConfigError(RuntimeError):
@@ -30,6 +35,9 @@ class Config:
     piper_dir: str
     telegram_api: str
     min_group_words: int
+    gemini_tts_model: str = ""
+    gemini_tts_voices: dict[str, str] = field(default_factory=lambda: dict(GEMINI_TTS_VOICES))
+    tts_style: str = DEFAULT_TTS_STYLE
 
     @property
     def gemini_enabled(self) -> bool:
@@ -88,4 +96,10 @@ def load() -> Config:
         piper_dir=_env("PIPER_DIR") or os.path.join(os.path.expanduser("~"), ".cache", "piper-voices"),
         telegram_api=(_env("TELEGRAM_API_BASE") or DEFAULT_TELEGRAM_API).rstrip("/"),
         min_group_words=int(_env("MIN_GROUP_WORDS") or 6),
+        gemini_tts_model=_env("GEMINI_TTS_MODEL"),
+        gemini_tts_voices={
+            "female": _env("GEMINI_TTS_VOICE_FEMALE") or GEMINI_TTS_VOICES["female"],
+            "male": _env("GEMINI_TTS_VOICE_MALE") or GEMINI_TTS_VOICES["male"],
+        },
+        tts_style=_env("TTS_STYLE") or DEFAULT_TTS_STYLE,
     )

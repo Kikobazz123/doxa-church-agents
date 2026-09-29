@@ -12,6 +12,10 @@ on:
       listen_minutes:
         description: 'Stay connected and reply instantly for this many minutes (0 = check once)'
         default: '0'
+      voice_samples:
+        description: 'Only render voice samples to download (no Telegram)'
+        type: boolean
+        default: false
 
 concurrency:
   group: announcer
@@ -51,7 +55,25 @@ jobs:
           ${{ vars.PIPER_VOICE_FEMALE || 'en_GB-jenny_dioco-medium' }}
           ${{ vars.PIPER_VOICE_MALE || 'en_GB-alan-medium' }}
 
+      - name: Render voice samples
+        if: inputs.voice_samples
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
+          TTS_STYLE: ${{ vars.TTS_STYLE }}
+          SAMPLE_VOICES: ${{ vars.SAMPLE_VOICES }}
+        run: python -m announcer.samples
+
+      - name: Upload voice samples
+        if: inputs.voice_samples && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-samples
+          path: voice-samples/
+          retention-days: 3
+
       - name: Check Telegram and reply
+        if: ${{ !inputs.voice_samples }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -62,6 +84,10 @@ jobs:
           VOICE_FEMALE: ${{ vars.VOICE_FEMALE }}
           VOICE_MALE: ${{ vars.VOICE_MALE }}
           VOICE_RATE: ${{ vars.VOICE_RATE }}
+          GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
+          GEMINI_TTS_VOICE_FEMALE: ${{ vars.GEMINI_TTS_VOICE_FEMALE }}
+          GEMINI_TTS_VOICE_MALE: ${{ vars.GEMINI_TTS_VOICE_MALE }}
+          TTS_STYLE: ${{ vars.TTS_STYLE }}
           PIPER_VOICE_FEMALE: ${{ vars.PIPER_VOICE_FEMALE }}
           PIPER_VOICE_MALE: ${{ vars.PIPER_VOICE_MALE }}
           MIN_GROUP_WORDS: ${{ vars.MIN_GROUP_WORDS }}

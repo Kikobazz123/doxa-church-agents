@@ -92,7 +92,7 @@ def test_both_voices_failing_is_reported(cfg):
     tg = FakeTelegram([make_update(1, LONG)])
     a = one_run(tg, cfg, engines=broken)
     assert a.failures == 1 and tg.audio == []
-    assert "both voice engines failed" in tg.messages[-1][1]
+    assert "every voice engine failed" in tg.messages[-1][1]
 
 
 def test_unexpected_error_is_reported_and_confirmed(cfg):
@@ -143,3 +143,16 @@ def test_update_dropped_when_bot_was_removed_from_chat(cfg):
     a = Announcer(cfg, tg, build_script=fake_script, engines_for=EngineSpy())
     run(tg, a)
     assert tg.queue == [] and a.failures == 1
+
+
+def test_group_is_told_which_names_were_respelled(cfg):
+    from announcer.script import Script
+
+    def with_names(text, cfg):
+        return Script("Pastor Tonte", "Pastor Ton-teh", "gemini", pronounced={"Tonte": "Ton-teh"})
+
+    tg = FakeTelegram([make_update(1, LONG)])
+    a = Announcer(cfg, tg, build_script=with_names, engines_for=EngineSpy())
+    run(tg, a)
+    assert tg.messages[0][1] == "Pastor Tonte"
+    assert "Tonte as Ton-teh" in tg.messages[1][1] and "pronunciations.json" in tg.messages[1][1]
