@@ -98,6 +98,9 @@ Messages from any chat that isn't in `ALLOWED_CHAT_IDS` are ignored.
 | The announcements, as a normal message | Script + MP3 |
 | `/preview` followed by the announcements | Script only, no audio (useful for checking the wording) |
 | `/voice male` or `/voice female` | Changes the voice for every MP3 from then on |
+| `/say Name Re-spell-ing` | Saves how a name should be said, e.g. `/say Tonte Ton-teh`, and plays it back |
+| `/say Name` | Tells you, and plays, how a name is said now |
+| `/unsay Name` | Removes a saved correction |
 | `/help` | A one-line reminder |
 
 **In the group, the bot ignores everyday chat.** It only acts on:
@@ -121,14 +124,23 @@ The script shown in Telegram keeps the normal spelling. Only the audio is change
 
 ## Name pronunciation
 
-The voice can mispronounce Nigerian names, so the bot respells them for the voice only. For example, *Abuloma* is read as *Ah-boo-loh-mah*. After each MP3, the bot lists which names it respelled.
+Voices tend to mispronounce Nigerian words, so the bot respells them for the voice only. For example, *Abuloma* is read as *Ah-boo-loh-mah*. This happens automatically for **every** Nigerian word in any announcement: names of people and places, foods, greetings and titles. Nobody needs to list them first.
 
-To correct a name, or to add one that's always wrong:
-1. In this repo on GitHub, open **`pronunciations.json`** and click the ✏️ pencil icon.
-2. Add or fix a line in the form `"Name": "Re-spell-ing",`, for example `"Eke": "Eh-keh",`. Every line except the last ends with a comma.
-3. Click **Commit changes**. The correction applies from the next MP3 onward.
+How the bot tells them apart:
+- **English words** are left alone. That includes church and Bible words like *ushering*, *choristers*, *Habakkuk* and *Zacchaeus*.
+- **Well-known names** that voices already say well, such as *Lagos* and *Ibrahim*, are also left alone.
+- **Everything else** that looks Nigerian gets the bot's respelling.
 
-Names in this file are always respelled their way. Other Nigerian names get the bot's best guess, and English names like Grace or James are left alone.
+After each MP3 the bot lists which words it respelled.
+
+**To correct one, send it in the group. No computer needed:**
+- `/say Tonte Ton-teh` saves the correction. The bot plays it back so you can check it by ear. Every future MP3 uses it.
+- `/say Tonte` plays how it's said now.
+- `/unsay Tonte` removes your correction.
+
+Saved corrections are stored in `pronunciations.json` in this repo. The bot saves that file itself when it gets a `/say`.
+
+To stop a word from ever being respelled, add it to `announcer/data/keep_as_written.txt`, one word per line.
 
 ## When it checks
 

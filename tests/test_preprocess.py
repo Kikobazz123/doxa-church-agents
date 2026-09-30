@@ -70,7 +70,7 @@ def test_table_speech_matches_the_md_example():
     spoken, used = to_speech(normalise(TABLE), lexicon={})
     assert spoken == (
         "The attendance by centre is as follows. First, Bonny Street, nineteen in attendance. "
-        "Second, Maccoba, fourteen in attendance. Third, Golf Estate two, ten in attendance. "
+        "Second, Mah-koh-bah, fourteen in attendance. Third, Golf Estate two, ten in attendance. "
         "Fourth, New Road, five in attendance. Fifth, N. T. A. Road, four in attendance. "
         "Sixth, Panama Estate, two in attendance."
     )
@@ -125,8 +125,8 @@ def test_lexicon_wins_and_substitutions_are_reported():
     assert used == {"Eke": "Eh-kay", "Chidi": "Chee-dee"}
 
 
-def test_unflagged_names_are_not_respelled():
-    assert to_speech("Brother Chidi and Sister Grace.", [], lexicon={})[0] == "Brother Chidi and Sister Grace."
+def test_names_are_respelled_without_gemini_but_english_names_are_not():
+    assert to_speech("Brother Chidi and Sister Grace.", [], lexicon={})[0] == "Brother Chee-dee and Sister Grace."
 
 
 def test_seed_lexicon_loads():
@@ -244,3 +244,62 @@ def test_gemini_client_error_is_not_retried(cfg, monkeypatch):
     with pytest.raises(errors.ClientError):
         generate("sys", "user")
     assert tried == ["main"]
+
+
+# -- every Nigerian word, found in code (no Gemini list) ------------------------------
+
+NIGERIAN = ("Chinedu Ngozi Obinna Nnamdi Ifeanyi Adaeze Oluwaseun Olumide Adebayo Temitope Folake Babatunde "
+            "Danjuma Tamunotonye Ibiba Tekena Boma Sokari Rumuokoro Rumuola Mgbuoba Elekahia Woji Eleme Diobu "
+            "Okrika Kpakol Nwachukwu Okafor Emeka Tunde Chioma Abdullahi Ogbonna Ikechukwu Nkechi Amaka Ijeoma "
+            "Kalabari Opobo Rumuomasi Nkpolu Oroworukwo Iwofe Choba Igwuruta").split()
+KEPT_ENGLISH = ["Ibrahim", "Yusuf", "Ade"]   # common enough in English that the voice already knows them
+CHURCH = ("Ushering Deaconess Choristers Thanksgiving Vigil Hallelujah Brethren Sanctuary Anointing Intercessory "
+          "Offertory Doxology Ministration Benediction Baptismal Tithes Hymnal Congregants Zacchaeus Habakkuk "
+          "Obadiah Auditorium Fellowship Naira").split()
+
+
+def test_every_nigerian_word_is_respelled_without_gemini():
+    text = " ".join(f"Please welcome {n} to the service." for n in NIGERIAN + KEPT_ENGLISH)
+    spoken, used = to_speech(text, [], lexicon={})
+    missed = [n for n in NIGERIAN if n not in used]
+    assert missed == []
+    assert all(k not in used for k in KEPT_ENGLISH)
+    assert spoken.count("Please welcome") == len(NIGERIAN) + len(KEPT_ENGLISH)
+
+
+def test_church_and_bible_words_are_never_respelled():
+    text = " ".join(f"The {w} Unit meets on Sunday." for w in CHURCH)
+    spoken, used = to_speech(text, [], lexicon={})
+    assert used == {}
+
+
+@pytest.mark.parametrize("word,expected", [("ofada", "oh-fah-dah"), ("amala", "ah-mah-lah"),
+                                           ("ekaabo", "eh-kah-boh"), ("egusi", "eh-goo-see")])
+def test_lower_case_nigerian_words(word, expected):
+    assert to_speech(f"We will serve {word} after service", [], lexicon={})[0] == f"We will serve {expected} after service."
+
+
+@pytest.mark.parametrize("typo", ["recieve", "definately", "seperate", "wierd"])
+def test_lower_case_english_typos_are_left_alone(typo):
+    assert to_speech(f"Please {typo} it", [], lexicon={})[1] == {}
+
+
+@pytest.mark.parametrize("name,expected", [("Okafor", "Oh-kah-for"), ("Yusuf", "Yoo-suf"), ("Ibrahim", "Ee-brah-him"),
+                                           ("Kpakol", "Kpah-kol"), ("Abdullahi", "Ab-doo-lah-hee")])
+def test_extended_rules(name, expected):
+    assert respell(name) == expected
+
+
+def test_gemini_flag_covers_well_known_names():
+    assert to_speech("Brother Ibrahim will lead.", ["Ibrahim"], lexicon={})[0] == "Brother Ee-brah-him will lead."
+
+
+def test_full_coverage_even_when_gemini_is_down(cfg):
+    def down(system, user):
+        raise ConnectionError("down")
+
+    raw = "YOUTH NEWS\nChinedu, Temitope and Okafor will lead the Rumuokoro outreach with Pastor Tamunotonye."
+    result = script.build(raw, cfg, generate=down)
+    assert result.source == "original"
+    assert set(result.pronounced) >= {"Chinedu", "Temitope", "Okafor", "Rumuokoro", "Tamunotonye"}
+    assert "Chinedu" in result.display and "Chee-neh-doo" in result.spoken

@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write  # /say corrections are committed back to pronunciations.json
   actions: write   # only for the keep-alive step below
 
 jobs:
@@ -38,7 +38,10 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          git config user.name "Church Announcer"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Restore backup voices
         id: piper

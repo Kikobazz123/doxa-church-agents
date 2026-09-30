@@ -11,6 +11,7 @@ import json
 import os
 import re
 import unicodedata
+from functools import lru_cache
 from pathlib import Path
 
 from .numbers import speakable
@@ -41,6 +42,37 @@ ENGLISH_SAFE = {
     "goodluck", "innocent", "prince", "princess", "lucky", "sunday", "monday", "friday", "street", "road",
     "estate", "church", "pastor", "deacon", "deaconess", "elder", "brother", "sister", "doxa", "jesus", "god",
 }
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
+COMMON_RANK = 40_000          # the top 40,000 English words are never respelled
+_TOKEN = re.compile(r"[^\W\d_][\w'’]*")
+_ENGLISH_LETTERS = re.compile(r"th|ph|wh|ck|ght|tion|sion|[xq]")
+_ENGLISH_ENDINGS = (
+    "ory", "ology", "ness", "ment", "ing", "ers", "ful", "less", "ity", "ism", "ist", "ance", "ence",
+    "ship", "able", "ible", "ive", "ous", "ary", "ery", "ly", "ed", "age", "ture",
+)
+
+
+@lru_cache(maxsize=1)
+def english_rank() -> dict[str, int]:
+    """Word -> frequency rank (0 = most common), from announcer/data/english_words.txt."""
+    try:
+        words = (DATA_DIR / "english_words.txt").read_text(encoding="utf-8").split()
+    except OSError:
+        return {}
+    return {w: i for i, w in enumerate(words)}
+
+
+@lru_cache(maxsize=1)
+def keep_as_written() -> frozenset[str]:
+    """ENGLISH_SAFE plus announcer/data/keep_as_written.txt (Bible books, names, places, church words)."""
+    try:
+        extra = [l.strip().lower() for l in (DATA_DIR / "keep_as_written.txt").read_text(encoding="utf-8").splitlines()
+                 if l.strip() and not l.lstrip().startswith("#")]
+    except OSError:
+        extra = []
+    return frozenset(ENGLISH_SAFE | set(extra))
+
 
 _DIGRAPHS = ("gb", "kp", "kw", "gw", "gh", "ch", "nw", "ny", "sh", "ts")
 _VOWELS = {"a": "ah", "e": "eh", "i": "ee", "o": "oh", "u": "oo", "ẹ": "eh", "ọ": "aw"}
@@ -80,7 +112,7 @@ def _units(w: str) -> list[str] | None:
     return units
 
 
-def _respell_part(part: str) -> str | None:
+def _respell_part(part: str, strict: bool) -> str | None:
     w = _letters(part)
     if not w or not w.isalpha():
         return None
@@ -90,7 +122,9 @@ def _respell_part(part: str) -> str | None:
     if not units:
         return None
 
-    syllables, onset, i = [], [], 0
+    syllables: list[list[str]] = []    # [onset, vowel, coda]; a lone nasal has vowel ""
+    onset: list[str] = []
+    i = 0
     while i < len(units):
         u = units[i]
         if u not in _VOWELS:
@@ -98,54 +132,91 @@ def _respell_part(part: str) -> str | None:
             continue
         # A lone h before another consonant is silent (Oahre -> Oh-ah-reh).
         onset = [c for j, c in enumerate(onset) if not (c == "h" and j < len(onset) - 1)]
-        if len(onset) > 1:
-            if onset[0] in ("m", "n"):
-                syllables.append(onset[0]); onset = onset[1:]   # syllabic nasal: Mbakwe -> m-bah-kweh
-            if len(onset) > 1:
-                return None      # a cluster like "tr": unsure
-        nxt, after = (units[i + 1] if i + 1 < len(units) else None), (units[i + 2] if i + 2 < len(units) else None)
+        if len(onset) > 1 and onset[0] in ("m", "n") and not syllables:
+            syllables.append(["", "", onset[0]]); onset = onset[1:]   # syllabic nasal: Mbakwe -> m-bah-kweh
+        if len(onset) == 2:
+            if not strict and onset[1] in ("r", "l", "w", "y"):
+                pass                                   # Ibrahim -> Ee-brah-him
+            elif not strict and syllables and syllables[-1][1] and not syllables[-1][2]:
+                syllables[-1][2] = onset.pop(0)        # Abdullahi -> Ab-doo-lah-hee
+            else:
+                return None
+        elif len(onset) > 2:
+            return None                                # three consonants: unsure
+        nxt = units[i + 1] if i + 1 < len(units) else None
+        after = units[i + 2] if i + 2 < len(units) else None
         if nxt in ("n", "m") and (after is None or after not in _VOWELS):
-            syllables.append("".join(onset) + _PLAIN.get(u, u) + nxt); i += 2      # coda: Ton-teh
+            syllables.append(["".join(onset), u, nxt]); i += 2      # coda: Ton-teh
         else:
-            syllables.append("".join(onset) + _VOWELS[u]); i += 1
+            syllables.append(["".join(onset), u, ""]); i += 1
         onset = []
     if onset:
-        return None              # trailing consonants that are not a coda: unsure
-    return "-".join(syllables)
+        if strict or len(onset) > 1 or not syllables or syllables[-1][2] or not syllables[-1][1]:
+            return None                                # trailing consonants: unsure
+        syllables[-1][2] = onset[0]                    # Okafor -> Oh-kah-for
+    return "-".join(
+        coda if not vowel else onset_ + (_PLAIN.get(vowel, vowel) + coda if coda else _VOWELS[vowel])
+        for onset_, vowel, coda in syllables
+    )
 
 
-def respell(name: str) -> str | None:
-    """Rule-based respelling of a Nigerian name, or None when the rules aren't sure."""
-    if name.lower() in ENGLISH_SAFE:
+def looks_english(word: str) -> bool:
+    w = word.lower()
+    return bool(_ENGLISH_LETTERS.search(w)) or w.endswith(_ENGLISH_ENDINGS)
+
+
+def respell(name: str, strict: bool = False) -> str | None:
+    """Rule-based respelling of a Nigerian word, or None when the rules aren't sure.
+
+    strict: only vowel / n / m syllable endings and no clusters, for words that
+    could be rare English. Otherwise final consonants and simple clusters are allowed.
+    """
+    if name.lower() in keep_as_written() or looks_english(name):
         return None
-    parts = [_respell_part(p) for p in re.split(r"['’]", name) if p]
+    parts = [_respell_part(p, strict) for p in re.split(r"['’]", name) if p]
     if not parts or any(p is None for p in parts):
         return None
     spelled = "-".join(parts)
     return spelled[:1].upper() + spelled[1:]
 
 
-def _replace_word(text: str, word: str, spoken: str) -> tuple[str, int]:
-    return re.subn(rf"(?<![\w-]){re.escape(word)}(?![\w-])", spoken, text, flags=re.IGNORECASE)
+def spoken_form(word: str, lexicon: dict[str, str], flagged: set[str] = frozenset()) -> str | None:
+    """How one word should be said, or None to leave it as written."""
+    low = word.lower()
+    if low in lexicon:
+        return lexicon[low]
+    if len(word) < 3 or word.isupper() or low in keep_as_written():
+        return None
+    if low in flagged:
+        return respell(word)
+    rank = english_rank().get(low)
+    if rank is not None and rank < COMMON_RANK:
+        return None                                    # everyday English, and well-known names like Lagos
+    # Capitalised (a name or place): extended rules. Lower case: strict, so rare English survives.
+    spelled = respell(word, strict=not word[0].isupper())
+    if spelled and word[0].islower():
+        spelled = spelled.lower()
+    return spelled
 
 
-def respell_names(text: str, nigerian_names: list[str], lexicon: dict[str, str]) -> tuple[str, dict[str, str]]:
+def respell_words(text: str, flagged: list[str], lexicon: dict[str, str]) -> tuple[str, dict[str, str]]:
+    """Respell every Nigerian word in the text, found in code; Gemini's list only adds to it."""
+    flagged_set = {w.lower() for name in flagged for w in _TOKEN.findall(name)}
+    decided: dict[str, str | None] = {}
     used: dict[str, str] = {}
-    for word, spoken in lexicon.items():
-        text, n = _replace_word(text, word, spoken)
-        if n:
-            used[word.capitalize()] = spoken
-    for name in nigerian_names:
-        for word in re.findall(r"[^\W\d_][\w'’]*", name):
-            if word.lower() in lexicon or word.capitalize() in used:
-                continue
-            spoken = respell(word)
-            if spoken:
-                text, n = _replace_word(text, word, spoken)
-                if n:
-                    used[word.capitalize()] = spoken
-    return text, used
 
+    def repl(m: re.Match) -> str:
+        word = m.group(0)
+        low = word.lower()
+        if low not in decided:
+            decided[low] = spoken_form(word, lexicon, flagged_set)
+        spoken = decided[low]
+        if not spoken:
+            return word
+        used.setdefault(word[:1].upper() + word[1:], spoken)
+        return spoken
+
+    return _TOKEN.sub(repl, text), used
 
 def final_check(text: str) -> str:
     """§5: nothing a voice would stumble on survives."""
@@ -170,5 +241,5 @@ def to_speech(display: str, nigerian_names: list[str] | None = None,
     text = speakable(text)
     text = _ACRONYM.sub(lambda m: m.group(0) if m.group(0) in _NOT_ACRONYMS else ". ".join(m.group(0)) + ".", text)
     text = re.sub(r"\.\.(?=\s|$)", ".", text)
-    text, used = respell_names(text, nigerian_names or [], load_lexicon() if lexicon is None else lexicon)
+    text, used = respell_words(text, nigerian_names or [], load_lexicon() if lexicon is None else lexicon)
     return final_check(text), used

@@ -155,4 +155,86 @@ def test_group_is_told_which_names_were_respelled(cfg):
     a = Announcer(cfg, tg, build_script=with_names, engines_for=EngineSpy())
     run(tg, a)
     assert tg.messages[0][1] == "Pastor Tonte"
-    assert "Tonte as Ton-teh" in tg.messages[1][1] and "pronunciations.json" in tg.messages[1][1]
+    assert "Tonte as Ton-teh" in tg.messages[1][1] and "/say" in tg.messages[1][1]
+
+
+# -- /say and /unsay -----------------------------------------------------------------
+
+class FakeLexicon:
+    NAME, SPELLING = None, None
+
+    def __init__(self, tmp_path, monkeypatch, fail_push=False):
+        import json
+        self.path = tmp_path / "pronunciations.json"
+        self.path.write_text(json.dumps({"Eke": "Eh-keh"}), encoding="utf-8")
+        monkeypatch.setenv("PRONUNCIATIONS_FILE", str(self.path))
+        self.pushed, self.fail_push = [], fail_push
+
+    def set_entry(self, name, spelling):
+        from announcer import lexicon_store
+        return lexicon_store.set_entry(name, spelling)
+
+    def publish(self, message):
+        from announcer.lexicon_store import LexiconError
+        if self.fail_push:
+            raise LexiconError("push failed")
+        self.pushed.append(message)
+
+
+@pytest.fixture
+def lexicon(tmp_path, monkeypatch):
+    return FakeLexicon(tmp_path, monkeypatch)
+
+
+def say(cfg, lexicon, *texts):
+    tg = FakeTelegram([make_update(i + 1, t) for i, t in enumerate(texts)])
+    a = Announcer(cfg, tg, build_script=fake_script, engines_for=EngineSpy(), lexicon=lexicon)
+    run(tg, a)
+    return tg, a
+
+
+def test_say_saves_publishes_and_plays_a_sample(cfg, lexicon):
+    import json
+    tg, a = say(cfg, lexicon, "/say Tonte Tawn-teh")
+    assert json.loads(lexicon.path.read_text(encoding="utf-8"))["Tonte"] == "Tawn-teh"
+    assert lexicon.pushed == ["Pronunciation: Tonte"]
+    assert "Saved. Tonte will be said as Tawn-teh" in tg.messages[0][1] and len(tg.audio) == 1
+
+
+def test_saved_pronunciation_is_used_by_the_next_script(cfg, lexicon):
+    from announcer.speech import to_speech
+    say(cfg, lexicon, "/say Tonte Tawn-teh")
+    assert to_speech("Pastor Tonte will preach.")[0] == "Pastor Tawn-teh will preach."
+
+
+def test_say_name_alone_reports_current_pronunciation(cfg, lexicon):
+    tg, _ = say(cfg, lexicon, "/say Eke", "/say Chidi")
+    assert "Eke is said as Eh-keh (from your corrections)" in tg.messages[0][1]
+    assert "Chidi is said as Chee-dee (worked out automatically)" in tg.messages[1][1]
+    assert len(tg.audio) == 2
+
+
+def test_say_rejects_bad_input(cfg, lexicon):
+    tg, _ = say(cfg, lexicon, "/say", "/say Tonte Ton-teh!!123")
+    assert "Send /say Name" in tg.messages[0][1] and "letters, hyphens" in tg.messages[1][1]
+    assert lexicon.pushed == []
+
+
+def test_unsay_removes_an_entry(cfg, lexicon):
+    import json
+    tg, _ = say(cfg, lexicon, "/unsay Eke", "/unsay Nobody")
+    assert "Eke" not in json.loads(lexicon.path.read_text(encoding="utf-8"))
+    assert "Removed. Eke will be worked out automatically again: Eh-keh" in tg.messages[0][1]
+    assert "not in the corrections list" in tg.messages[1][1]
+
+
+def test_failed_push_is_reported(cfg, tmp_path, monkeypatch):
+    lex = FakeLexicon(tmp_path, monkeypatch, fail_push=True)
+    tg, a = say(cfg, lex, "/say Tonte Tawn-teh")
+    assert "could not save it on GitHub" in tg.messages[0][1] and a.failures == 1
+
+
+def test_publish_is_a_no_op_outside_actions(tmp_path, monkeypatch):
+    from announcer import lexicon_store
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    lexicon_store.publish("x")      # must not touch git
