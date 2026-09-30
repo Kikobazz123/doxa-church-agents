@@ -1,0 +1,25 @@
+name: Build word list
+
+# Maintenance only: regenerates the ranked English word list (needs the 57 MB
+# wordfreq package, so it runs here rather than on a slow local connection).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install wordfreq
+      - run: python tools/build_wordlist.py 100000 > english_words_ranked.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: english-words
+          path: english_words_ranked.txt
+          retention-days: 3
