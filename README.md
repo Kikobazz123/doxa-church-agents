@@ -74,7 +74,7 @@ On the **Variables** tab, click **New repository variable** for each of these:
 | `CHURCH_NAME` *(optional)* | e.g. `Doxa Family Church`. If set, the greeting names the church. Leave it out for a general greeting. |
 | `VOICE_FEMALE` *(optional)* | The voice `/voice female` uses (and the default). Default `en-NG-EzinneNeural`. |
 | `VOICE_MALE` *(optional)* | The voice `/voice male` uses. Default `en-NG-AbeoNeural`. |
-| `VOICE_RATE` *(optional)* | Reading speed. Default `-10%` (a little slower than normal). Use e.g. `-15%` for slower or `+0%` for normal. |
+| `VOICE_RATE` *(optional)* | Reading speed. Default `-5%` (a touch slower than normal). Use e.g. `-10%` for slower or `+0%` for normal. |
 
 | `GEMINI_TTS_MODEL` *(recommended)* | Gemini's voice model, e.g. `gemini-3.8-flash-tts`. When set, Gemini reads the announcements in a Nigerian English accent. edge-tts and Piper become the backups. |
 | `GEMINI_TTS_VOICE_FEMALE` / `GEMINI_TTS_VOICE_MALE` *(optional)* | Gemini voice names. Defaults are `Sulafat` and `Charon`. To compare voices, use Actions → Run workflow → tick **voice_samples** and download the MP3s. |

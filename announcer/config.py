@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 EDGE_VOICES = {"female": "en-NG-EzinneNeural", "male": "en-NG-AbeoNeural"}
 DEFAULT_PIPER_VOICES = {"female": "en_GB-jenny_dioco-medium", "male": "en_GB-alan-medium"}
 DEFAULT_TELEGRAM_API = "https://api.telegram.org"
-DEFAULT_RATE = "-10%"  # a little slower than normal: clearer over a church sound system
+DEFAULT_RATE = "-5%"  # a little slower than normal: clearer over a church sound system
 DEFAULT_FALLBACK_MODELS = ("gemini-3.5-flash",)  # tried when the main model keeps returning 5xx
 GEMINI_TTS_VOICES = {"female": "Sulafat", "male": "Charon"}
 DEFAULT_TTS_STYLE = (
