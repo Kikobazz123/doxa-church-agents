@@ -224,7 +224,7 @@ def test_unsay_removes_an_entry(cfg, lexicon):
     import json
     tg, _ = say(cfg, lexicon, "/unsay Eke", "/unsay Nobody")
     assert "Eke" not in json.loads(lexicon.path.read_text(encoding="utf-8"))
-    assert "Removed. Eke will be worked out automatically again: Eh-keh" in tg.messages[0][1]
+    assert "Removed. Eke will be worked out automatically again: Ay-kay" in tg.messages[0][1]
     assert "not in the corrections list" in tg.messages[1][1]
 
 

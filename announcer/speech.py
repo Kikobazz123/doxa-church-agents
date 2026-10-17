@@ -75,7 +75,8 @@ def keep_as_written() -> frozenset[str]:
 
 
 _DIGRAPHS = ("gb", "kp", "kw", "gw", "gh", "ch", "nw", "ny", "sh", "ts")
-_VOWELS = {"a": "ah", "e": "eh", "i": "ee", "o": "oh", "u": "oo", "ẹ": "eh", "ọ": "aw"}
+# Plain e in Igbo/Yoruba/Ijaw is the "ay" of AK-47 (Eke = Ay-kay); only Yoruba ẹ is the open "eh".
+_VOWELS = {"a": "ah", "e": "ay", "i": "ee", "o": "oh", "u": "oo", "ẹ": "eh", "ọ": "aw"}
 _PLAIN = {"ẹ": "e", "ọ": "aw"}
 _CONSONANTS = set("bdfghjklmnprstvwyz")
 

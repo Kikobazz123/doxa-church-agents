@@ -141,10 +141,10 @@ def test_display_keeps_digits_and_names_while_spoken_is_respelled(cfg):
                         "nigerian_names": ["Tonte", "Abuloma"]})
     result = script.build(raw, cfg, generate=lambda s, u: reply)
     assert result.source == "gemini"
-    assert "Tonte" in result.display and "₦5,000" in result.display and "Ton-teh" not in result.display
-    assert "Pastor Ton-teh" in result.spoken and "Ah-boo-loh-mah" in result.spoken
+    assert "Tonte" in result.display and "₦5,000" in result.display and "Ton-tay" not in result.display
+    assert "Pastor Ton-tay" in result.spoken and "Ah-boo-loh-mah" in result.spoken
     assert "five thousand naira" in result.spoken
-    assert result.pronounced == {"Tonte": "Ton-teh", "Abuloma": "Ah-boo-loh-mah"}
+    assert result.pronounced == {"Tonte": "Ton-tay", "Abuloma": "Ah-boo-loh-mah"}
 
 
 def test_guard_ignores_reworded_headings(cfg):
@@ -274,7 +274,7 @@ def test_church_and_bible_words_are_never_respelled():
 
 
 @pytest.mark.parametrize("word,expected", [("ofada", "oh-fah-dah"), ("amala", "ah-mah-lah"),
-                                           ("ekaabo", "eh-kah-boh"), ("egusi", "eh-goo-see")])
+                                           ("ekaabo", "ay-kah-boh"), ("egusi", "ay-goo-see")])
 def test_lower_case_nigerian_words(word, expected):
     assert to_speech(f"We will serve {word} after service", [], lexicon={})[0] == f"We will serve {expected} after service."
 
@@ -302,4 +302,4 @@ def test_full_coverage_even_when_gemini_is_down(cfg):
     result = script.build(raw, cfg, generate=down)
     assert result.source == "original"
     assert set(result.pronounced) >= {"Chinedu", "Temitope", "Okafor", "Rumuokoro", "Tamunotonye"}
-    assert "Chinedu" in result.display and "Chee-neh-doo" in result.spoken
+    assert "Chinedu" in result.display and "Chee-nay-doo" in result.spoken

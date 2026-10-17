@@ -101,7 +101,7 @@ def test_voice_and_speed_come_from_variables(monkeypatch):
     monkeypatch.delenv("VOICE_RATE", raising=False)
     c = config.load()
     assert c.edge_voice(None) == "en-US-AvaNeural" and c.edge_voice("male") == "en-US-AndrewNeural"
-    assert c.voice_rate == "-15%"
+    assert c.voice_rate == "-10%"
 
     monkeypatch.setenv("VOICE_RATE", "slow")
     with pytest.raises(config.ConfigError):
