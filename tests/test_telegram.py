@@ -58,3 +58,17 @@ def test_errors_never_leak_the_token():
     with pytest.raises(TelegramError) as exc:
         client(FakeSession(ok=False)).get_me()
     assert "SECRET-TOKEN" not in str(exc.value)
+
+
+def test_download_document_uses_file_path_and_hides_token():
+    class S(FakeSession):
+        def get(self, url, timeout=None):
+            self.got = url
+            r = FakeResponse({})
+            r.content, r.raise_for_status = b"DOCX", (lambda: None)
+            return r
+
+    s = S(result={"file_path": "documents/file_1.docx"})
+    assert client(s).download_document("abc") == b"DOCX"
+    assert s.calls[0]["method"] == "getFile" and s.calls[0]["params"] == {"file_id": "abc"}
+    assert s.got == "https://example.invalid/file/botSECRET-TOKEN/documents/file_1.docx"

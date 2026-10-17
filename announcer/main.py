@@ -19,14 +19,14 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import config, lexicon_store, script, speech, voice
+from . import config, docx_reader, lexicon_store, script, speech, voice
 from .telegram import Telegram, TelegramError
 
 log = logging.getLogger("announcer")
 
 WAT = timezone(timedelta(hours=1))
 USAGE = (
-    "Send the week's announcements and I'll reply with a script and an MP3. "
+    "Send the week's announcements, as text or as a Word .docx file, and I'll reply with a script and an MP3. "
     "/preview + text for the script only, /voice male or /voice female to change the voice, "
     "/say Name Re-spell-ing to fix how a name is said (/say Name to hear it, /unsay Name to undo)."
 )
@@ -102,6 +102,8 @@ class Announcer:
             return "ignored_chat"
         if msg.get("from", {}).get("is_bot"):
             return "ignored_bot"
+        if msg.get("document"):
+            return self._document(chat["id"], msg, edited)
         text = (msg.get("text") or "").strip()
         if not text:
             return "ignored_nontext"
@@ -131,6 +133,40 @@ class Announcer:
             if text is None:
                 return "ignored_chatter"
         return self._announce(chat["id"], text, reply_to, audio=True, edited=edited)
+
+    def _document(self, chat_id: int, msg: dict, edited: bool) -> str:
+        """A Word .docx sent to the chat is read like pasted announcements.
+
+        The caption may say /preview for the script only. Older or other formats get
+        a short hint; files that are clearly not announcements are ignored.
+        """
+        doc, reply_to = msg["document"], msg["message_id"]
+        name = (doc.get("file_name") or "").lower()
+        if not name.endswith(".docx"):
+            if name.endswith((".doc", ".pdf", ".odt", ".rtf", ".pages", ".txt")):
+                self.tg.send_message(chat_id, "I can read Word .docx files or pasted text. Please save the "
+                                              "announcements as .docx (File > Save As > Word Document) and send "
+                                              "it again, or paste the text.", reply_to)
+                return "unsupported_file"
+            return "ignored_nontext"
+        if (doc.get("file_size") or 0) > docx_reader.MAX_BYTES:
+            self.tg.send_message(chat_id, "That Word file is too large for me to open (over 20 MB). "
+                                          "Please paste the text instead.", reply_to)
+            return "unsupported_file"
+
+        try:
+            text = docx_reader.docx_to_text(self.tg.download_document(doc["file_id"]))
+        except docx_reader.DocxError:
+            self.tg.send_message(chat_id, "I couldn't open that Word file. Please check it opens in Word, "
+                                          "save it again as .docx, or paste the text instead.", reply_to)
+            return "unsupported_file"
+        if not text:
+            self.tg.send_message(chat_id, "That Word file looks empty. Please check it and send it again.", reply_to)
+            return "unsupported_file"
+
+        cmd, _ = parse_command((msg.get("caption") or "").strip(), self.username)
+        log.info("document read kind=docx")
+        return self._announce(chat_id, text, reply_to, audio=cmd != "preview", edited=edited)
 
     def _addressed_text(self, msg: dict, text: str) -> str | None:
         """In a group, only act on announcements, not on everyday chat.

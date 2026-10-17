@@ -36,6 +36,7 @@ def split_text(text: str, limit: int = MAX_MESSAGE) -> list[str]:
 class Telegram:
     def __init__(self, token: str, api_base: str, session: requests.Session | None = None):
         self._base = f"{api_base}/bot{token}/"
+        self._file_base = f"{api_base}/file/bot{token}/"
         self._http = session or requests.Session()
 
     def _call(self, method: str, *, http_timeout: float = 30, files=None, **params):
@@ -53,6 +54,16 @@ class Telegram:
 
     def get_me(self) -> dict:
         return self._call("getMe")
+
+    def download_document(self, file_id: str) -> bytes:
+        """Fetch a file someone sent (Telegram allows bots up to 20 MB)."""
+        path = self._call("getFile", file_id=file_id)["file_path"]
+        try:
+            resp = self._http.get(f"{self._file_base}{path}", timeout=60)
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            raise TelegramError(f"download: {type(exc).__name__}") from None
+        return resp.content
 
     def get_webhook_info(self) -> dict:
         return self._call("getWebhookInfo")

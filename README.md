@@ -96,6 +96,7 @@ Messages from any chat that isn't in `ALLOWED_CHAT_IDS` are ignored.
 | Send this | You get |
 |---|---|
 | The announcements, as a normal message | Script + MP3 |
+| The announcements as a **Word .docx file** (attach it in the group) | Script + MP3, read straight from the file, tables included. Type `/preview` as the caption for the script only. |
 | `/preview` followed by the announcements | Script only, no audio (useful for checking the wording) |
 | `/voice male` or `/voice female` | Changes the voice for every MP3 from then on |
 | `/say Name Re-spell-ing` | Saves how a name should be said, e.g. `/say Tonte Ton-teh`, and plays it back |
@@ -112,9 +113,11 @@ So "Amen 🙏" or "Received, thanks" won't produce an MP3. To send a very short 
 
 **Made a mistake?** Edit the message in Telegram. On its next check, the bot replies with an *Updated script* and a new MP3.
 
-## Pasting from the Word document
+## Sending or pasting the Word document
 
-You can paste the script straight from the .docx. The bot tidies it up first:
+The easiest way is to **attach the .docx itself** in the group (📎 → File). The bot opens it and reads the paragraphs and tables in order. Older `.doc` files and PDFs can't be read: in Word, use **File → Save As → Word Document (.docx)** first, or paste the text.
+
+Pasted text works too. Either way, the bot tidies it up first:
 - **Bold marks and lines:** `**`, `|` and `---` leftovers are removed.
 - **ALL-CAPS headings:** read as normal headings, so the voice doesn't spell them out letter by letter.
 - **Attendance tables** (S/N | CENTRE | ATT, even side by side): read as sentences, e.g. *"First, Bonny Street, nineteen in attendance."* Empty rows are skipped.
